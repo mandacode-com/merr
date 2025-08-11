@@ -1,4 +1,4 @@
-module github.com/mandacode-com/serr
+module github.com/mandacode-com/merr
 
 go 1.24.5
 

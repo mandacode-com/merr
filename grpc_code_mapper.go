@@ -1,4 +1,4 @@
-package serr
+package merr
 
 import "google.golang.org/grpc/codes"
 

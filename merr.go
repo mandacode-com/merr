@@ -1,6 +1,6 @@
-// Package serr
+// Package merr
 // This package provides a custom error type for handling errors in a structured way.
-package serr
+package merr
 
 type PublicErr interface {
 	error

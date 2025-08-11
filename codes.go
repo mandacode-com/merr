@@ -1,4 +1,4 @@
-package serr
+package merr
 
 type ErrCode string
 

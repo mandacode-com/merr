@@ -1,4 +1,4 @@
-package serr
+package merr
 
 import "net/http"
 

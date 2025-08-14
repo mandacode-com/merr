@@ -31,3 +31,13 @@ const (
 	ErrTooEarly                    ErrCode = "too_early"
 	ErrRequestHeaderFieldsTooLarge ErrCode = "request_header_fields_too_large"
 )
+
+func CheckCode(err error, code ErrCode) bool {
+	if err == nil {
+		return false
+	}
+	if serr, ok := err.(*Err); ok {
+		return serr.code == code
+	}
+	return false
+}

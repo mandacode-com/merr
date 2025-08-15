@@ -1,0 +1,43 @@
+name: Tests
+
+on: [push]
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Show Go environment
+        run: |
+          go version
+          go env
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Run tests with race & coverage
+        run: |
+          set -e
+          go test ./... -race -covermode=atomic -coverprofile=coverage.out
+
+      - name: Coverage summary
+        run: |
+          echo "### Coverage summary" >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out | tail -n 1 | awk '{print "- Total: **" $3 "**"}' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage.out
+          path: coverage.out
+          if-no-files-found: error

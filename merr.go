@@ -102,3 +102,12 @@ func MapPublicErr(err error) PublicErr {
 		cause:     err,
 	}
 }
+
+// IsPublicErr checks if an error is a PublicErr.
+func IsPublicErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(PublicErr)
+	return ok
+}

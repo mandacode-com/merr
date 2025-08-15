@@ -36,8 +36,8 @@ func CheckCode(err error, code ErrCode) bool {
 	if err == nil {
 		return false
 	}
-	if serr, ok := err.(*Err); ok {
-		return serr.code == code
+	if serr, ok := err.(PublicErr); ok {
+		return serr.Code() == code
 	}
 	return false
 }

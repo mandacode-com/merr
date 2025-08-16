@@ -5,8 +5,8 @@ import (
 	"github.com/mandacode-com/merr"
 )
 
-// GinError is a Gin middleware that handles errors and converts them to JSON responses.
-func GinError() gin.HandlerFunc {
+// GinErrorHandler is a Gin middleware that handles errors and converts them to JSON responses.
+func GinErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 

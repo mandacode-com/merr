@@ -1,6 +1,11 @@
 name: Tests
 
-on: [push]
+on:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - main
 
 jobs:
   test:

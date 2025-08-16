@@ -1,0 +1,35 @@
+package merrmid
+
+import (
+	"context"
+
+	"github.com/mandacode-com/merr"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
+)
+
+// GRPCErrorInterceptor handles AppError and logs gRPC errors consistently.
+func GRPCErrorInterceptor() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (any, error) {
+		resp, err := handler(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+
+		if publicErr, ok := err.(merr.PublicErr); ok {
+			return nil, status.Errorf(
+				publicErr.Code().ToGRPCCode(),
+				"%s", publicErr.Public(),
+			)
+		}
+		return nil, status.Errorf(
+			status.Code(err),
+			"%s", err.Error(),
+		)
+	}
+}

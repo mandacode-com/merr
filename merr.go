@@ -83,25 +83,28 @@ func (e *err) Format(s fmt.State, verb rune) {
 	}
 }
 
-func New(code ErrCode, msg string, cause error) error {
+// New creates a new error with the specified code and message.
+func New(code ErrCode, msg string, publicMsg string, error error) error {
 	if msg == "" {
 		msg = string(code)
 	}
+
 	stack := make([]uintptr, 32)
 	n := runtime.Callers(2, stack)
 
 	e := &err{
 		msg:    msg,
-		public: msg,
+		public: publicMsg,
 		code:   code,
-		cause:  cause,
+		cause:  error,
 		stack:  stack[:n],
 	}
 
 	return e
 }
 
-func Wrap(error error, code ErrCode, msg string) error {
+// Wrap wraps an existing error with a new message and code, capturing the stack trace.
+func Wrap(error error, msg string) error {
 	if error == nil {
 		return nil
 	}
@@ -117,16 +120,15 @@ func Wrap(error error, code ErrCode, msg string) error {
 		return &err{
 			msg:    msg,
 			public: publicErr.Public(),
-			code:   code,
+			code:   publicErr.Code(),
 			cause:  publicErr,
 			stack:  stack[:n],
 		}
 	}
-
 	return &err{
 		msg:    msg,
 		public: msg,
-		code:   code,
+		code:   ErrUnknown,
 		cause:  error,
 		stack:  stack[:n],
 	}
@@ -160,30 +162,4 @@ func Cause(error error) error {
 	}
 
 	return nil
-}
-
-func SetPublicMsg(error error, msg string) error {
-	if error == nil {
-		return nil
-	}
-
-	if publicErr, ok := error.(PublicErr); ok {
-		return &err{
-			msg:    publicErr.Error(),
-			public: msg,
-			code:   publicErr.Code(),
-			cause:  publicErr.Unwrap(),
-			stack:  publicErr.Stack(),
-		}
-	}
-
-	stack := make([]uintptr, 32)
-	n := runtime.Callers(2, stack)
-	return &err{
-		msg:    error.Error(),
-		public: msg,
-		code:   ErrUnknown, // Default code if not specified
-		cause:  error,
-		stack:  stack[:n],
-	}
 }

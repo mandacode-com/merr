@@ -14,18 +14,16 @@ import (
 // Local test codes (assuming type ErrCode is defined in the package)
 const (
 	codeRoot ErrCode = "E_ROOT"
-	codeWrap ErrCode = "E_WRAP"
 )
 
-// Prevent inlining so that function names show up stably in stack traces.
 //go:noinline
 func rootErr() error {
-	return New(codeRoot, "root failed", nil)
+	return New(codeRoot, "root failed", "root error", nil)
 }
 
 //go:noinline
 func wrapOnce(in error) error {
-	return Wrap(in, codeWrap, "wrap failed")
+	return Wrap(in, "wrap failed")
 }
 
 // topFuncName returns the function name of the top frame in pcs.
@@ -40,13 +38,40 @@ func topFuncName(pcs []uintptr) string {
 	return fn.Name()
 }
 
-func TestFormatPlusV_PropagatesAndShowsCallSitePerLayer(t *testing.T) {
-	// Given: base -> wrap
+func TestNew_CreatesPublicErr(t *testing.T) {
+	err := rootErr()
+
+	pe, ok := err.(PublicErr)
+	require.True(t, ok, "New should return a PublicErr")
+
+	assert.Equal(t, "root error", pe.Public(), "Public() should return the message")
+	assert.Equal(t, codeRoot, pe.Code(), "Code() should return the correct code")
+	assert.NotNil(t, pe.Stack(), "Stack() should return a non-nil stack trace")
+}
+
+func TestWrap_CreatesPublicErrWithCause(t *testing.T) {
 	base := rootErr()
-	w := wrapOnce(base)
+	wrapped := wrapOnce(base)
+
+	pe, ok := wrapped.(PublicErr)
+	require.True(t, ok, "Wrap should return a PublicErr")
+
+	assert.Equal(t, "root error", pe.Public(), "Public() should return the message")
+	assert.Equal(t, codeRoot, pe.Code(), "Code() should return the correct code")
+	assert.NotNil(t, pe.Stack(), "Stack() should return a non-nil stack trace")
+
+	// Cause should be the original error
+	cause := Cause(pe)
+	require.NotNil(t, cause, "Cause should return a non-nil error")
+	assert.Equal(t, base, cause, "Cause should match the original error")
+}
+
+func TestFormatPlusV_PropagatesAndShowsCallSitePerLayer(t *testing.T) {
+	base := rootErr()
+	wrapped := wrapOnce(base)
 
 	// When
-	out := fmt.Sprintf("%+v", w)
+	out := fmt.Sprintf("%+v", wrapped)
 
 	// Then: top line includes top message (current layer)
 	assert.Contains(t, out, "wrap failed", "top layer message should appear")
@@ -67,12 +92,12 @@ func TestFormatPlusV_PropagatesAndShowsCallSitePerLayer(t *testing.T) {
 	assert.Contains(t, causeTail, "rootErr", "inner layer stack should include the root call site function")
 
 	// Sanity: %s prints only Public() (which is "root failed" at the top layer)
-	assert.Equal(t, "root failed", fmt.Sprintf("%s", w), "%s should print Public() only")
+	assert.Equal(t, "root error", fmt.Sprintf("%s", wrapped), "%s should print Public() only")
 }
 
 func TestFormatPlusV_SingleLayer_NoCause(t *testing.T) {
-	// Given: single-layer error via New
 	base := rootErr()
+
 	pe, ok := base.(PublicErr)
 	require.True(t, ok, "rootErr should return PublicErr")
 
@@ -83,61 +108,28 @@ func TestFormatPlusV_SingleLayer_NoCause(t *testing.T) {
 	assert.Contains(t, out, "root failed", "single-layer message should appear")
 	assert.Contains(t, out, "rootErr", "single-layer stack should include the creation site function")
 	assert.NotContains(t, out, "caused by:", "single-layer should not include cause")
-	// %s prints Public() == "root failed"
-	assert.Equal(t, "root failed", fmt.Sprintf("%s", base))
+	// %s prints Public() == "root error"
+	assert.Equal(t, "root error", fmt.Sprintf("%s", base))
 	// Top frame function name matches expectation
 	assert.Contains(t, topFuncName(pe.Stack()), "rootErr")
 }
 
 func TestIs_CurrentLayerOnly(t *testing.T) {
-	base := rootErr()           // top code E_ROOT
-	w := wrapOnce(base)         // top code E_WRAP
+	base := rootErr()
+	wrapped := wrapOnce(base)
 
-	assert.True(t, Is(w, codeWrap), "Is should be true for top code")
-	assert.False(t, Is(w, codeRoot), "Is should be false for inner code on top error")
-
-	assert.True(t, Is(base, codeRoot), "Is should match on single-layer error")
+	assert.True(t, Is(wrapped, codeRoot), "Is should be true for wrapped error")
+	assert.True(t, Is(base, codeRoot), "Is should be true for base error")
 }
 
 func TestCause_ReturnsDirectCause(t *testing.T) {
 	base := rootErr()
-	w := wrapOnce(base)
+	wrapped := wrapOnce(base)
 
-	got := Cause(w)
+	got := Cause(wrapped)
 	require.NotNil(t, got, "Cause should return the direct cause")
 	assert.Equal(t, base, got, "Cause(wrap) should be the wrapped error (pointer equality expected)")
 
 	// Base has no cause
 	assert.Nil(t, Cause(base))
-}
-
-func TestSetPublicMsg_OnPublicErr_ReplacesPublic_AndKeepsStack(t *testing.T) {
-	// Given: a two-layer error
-	base := rootErr()
-	w := wrapOnce(base)
-
-	// When: replace public message on the top-level PublicErr
-	repl := SetPublicMsg(w, "custom public")
-	pe, ok := repl.(PublicErr)
-	require.True(t, ok, "SetPublicMsg should return a PublicErr")
-
-	// Then: Public() replaced, internal msg kept
-	assert.Equal(t, "custom public", pe.Public(), "public message should be replaced")
-	assert.Equal(t, w.(PublicErr).Error(), pe.Error(), "internal message should be preserved")
-
-	// Code should be preserved
-	assert.Equal(t, w.(PublicErr).Code(), pe.Code(), "code should be preserved")
-
-	// Cause should be preserved (direct cause of the original top-level)
-	assert.Equal(t, w.(PublicErr).Unwrap(), pe.Unwrap(), "cause should be preserved")
-
-	// Stack should be the same as the original top-level stack (not newly captured)
-	origTop := w.(PublicErr).Stack()
-	newTop := pe.Stack()
-	require.NotEmpty(t, origTop, "original top stack should not be empty")
-	require.NotEmpty(t, newTop, "new top stack should not be empty")
-
-	origFn := topFuncName(origTop)
-	newFn := topFuncName(newTop)
-	assert.Equal(t, origFn, newFn, "top frame function should remain identical after SetPublicMsg")
 }

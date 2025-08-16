@@ -105,14 +105,6 @@ func New(code ErrCode, msg string, publicMsg string, error error) error {
 
 // Wrap wraps an existing error with a new message and code, capturing the stack trace.
 func Wrap(error error, msg string) error {
-	if error == nil {
-		return nil
-	}
-
-	if msg == "" {
-		msg = error.Error()
-	}
-
 	stack := make([]uintptr, 32)
 	n := runtime.Callers(2, stack)
 

@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// GRPCErrorInterceptor handles AppError and logs gRPC errors consistently.
-func GRPCErrorInterceptor() grpc.UnaryServerInterceptor {
+// GRPCError is a gRPC middleware that handles errors and converts them to gRPC status errors.
+func GRPCError() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req any,

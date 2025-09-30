@@ -33,3 +33,11 @@ func (e *err) Public() string {
 func (e *err) Code() ErrCode {
 	return e.code
 }
+
+// Error returns the error message.
+func (e *err) Error() string {
+	if e.error != nil {
+		return e.error.Error()
+	}
+	return e.public
+}
